@@ -6,6 +6,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -18,13 +19,15 @@ type config struct {
 type application struct {
 	config   config
 	logger   *log.Logger
-	severs   []*Server
+	servers  []*Server
 	strategy Strategy
+	mu       sync.RWMutex
 }
 
 type Server struct {
 	url          *url.URL
 	alive        bool
+	// connections  int64
 	reverseProxy *httputil.ReverseProxy
 }
 
@@ -35,12 +38,25 @@ func (app *application) addServer(serverURL string) {
 	}
 
 	server := &Server{
-		url: parsedURL,
-		alive: true,
+		url:          parsedURL,
+		alive:        true,
 		reverseProxy: httputil.NewSingleHostReverseProxy(parsedURL),
 	}
 
-	app.severs = append(app.severs, server)
+	// server.reverseProxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+	// 	app.logger.Printf("Proxy error: %v", err)
+	// 	retries := app.contextGetRetries(r)
+	// 	app.logger.Printf("retries: %v", retries)
+	// 	if retries < 3 {
+	// 		time.Sleep(10 * time.Millisecond)
+	// 		r = app.contextSetRetries(r, retries + 1)
+	// 		app.ServeHTTP(w, r)
+	// 		return
+	// 	}
+	// 	http.Error(w, "Service not available", http.StatusServiceUnavailable)
+	// }
+
+	app.servers = append(app.servers, server)
 
 }
 
@@ -52,7 +68,7 @@ func main() {
 
 	flag.Parse()
 
-	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
+	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
 
 	app := &application{
 		config: cfg,
@@ -61,8 +77,8 @@ func main() {
 
 	app.strategy = &RoundRobinStrategy{app: app}
 
-	app.addServer("http://localhost:8001/")
 	app.addServer("http://localhost:8002/")
+	app.addServer("http://localhost:8001/")
 	app.addServer("http://localhost:8003/")
 
 	err := app.start()

@@ -1,20 +1,36 @@
 package main
 
+import (
+	"sync/atomic"
+)
+
 type Strategy interface {
 	NextServer() *Server
 }
 
 type RoundRobinStrategy struct {
-	current int
+	current int64
 	app     *application
 }
 
 func (rr *RoundRobinStrategy) NextServer() *Server {
-	if len(rr.app.severs) == 0 {
+	rr.app.mu.RLock()
+	defer rr.app.mu.RUnlock()
+
+	severCount := len(rr.app.servers)
+
+	if severCount == 0 {
 		return nil
 	}
 
-	next := rr.current % len(rr.app.severs)
-	rr.current++
-	return rr.app.severs[next]
+	for i := 0; i < severCount; i++ {
+		next := atomic.AddInt64(&rr.current, 1) % int64(severCount)
+		server := rr.app.servers[next]
+
+		if server.alive {
+			return server
+		}
+	}
+
+	return nil
 }
