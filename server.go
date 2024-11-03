@@ -9,6 +9,9 @@ import (
 )
 
 func (app *application) start() error {
+
+	go app.healthCheck()
+
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", app.config.port),
 		Handler: app,
@@ -50,7 +53,6 @@ func (app *application) attemptRequest(w http.ResponseWriter, r *http.Request, s
 
 	if bodyBytes != nil {
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-		// Make sure to update the content length as well
 		r.ContentLength = int64(len(bodyBytes))
 	}
 

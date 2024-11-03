@@ -13,7 +13,6 @@ import (
 type config struct {
 	port                int
 	healthCheckInterval time.Duration
-	// severs              []string
 }
 
 type application struct {
@@ -27,7 +26,7 @@ type application struct {
 type Server struct {
 	url          *url.URL
 	alive        bool
-	// connections  int64
+	mux						sync.RWMutex
 	reverseProxy *httputil.ReverseProxy
 }
 
@@ -43,22 +42,11 @@ func (app *application) addServer(serverURL string) {
 		reverseProxy: httputil.NewSingleHostReverseProxy(parsedURL),
 	}
 
-	// server.reverseProxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-	// 	app.logger.Printf("Proxy error: %v", err)
-	// 	retries := app.contextGetRetries(r)
-	// 	app.logger.Printf("retries: %v", retries)
-	// 	if retries < 3 {
-	// 		time.Sleep(10 * time.Millisecond)
-	// 		r = app.contextSetRetries(r, retries + 1)
-	// 		app.ServeHTTP(w, r)
-	// 		return
-	// 	}
-	// 	http.Error(w, "Service not available", http.StatusServiceUnavailable)
-	// }
 
 	app.servers = append(app.servers, server)
 
 }
+
 
 func main() {
 	var cfg config
